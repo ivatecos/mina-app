@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import useStore from './store/useStore'
@@ -19,6 +19,7 @@ import Reportes from './pages/Reportes'
 
 export default function App() {
   const { setUser, loadCorteActivo } = useStore()
+  const [authReady, setAuthReady] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -29,6 +30,7 @@ export default function App() {
           loadCorteActivo()
         }
       }
+      setAuthReady(true)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -36,6 +38,12 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  if (!authReady) return (
+    <div className="min-h-screen bg-mine-bg flex items-center justify-center">
+      <div className="text-mine-muted text-sm">Cargando...</div>
+    </div>
+  )
 
   return (
     <BrowserRouter>
