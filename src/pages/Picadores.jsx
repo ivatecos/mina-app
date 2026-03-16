@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
-import { formatCOP, formatNumber, FRENTES, FRENTE_LABELS } from '../lib/utils'
+import { formatCOP, formatNumber } from '../lib/utils'
 
 const emptyForm = {
-  frente: 'frente1', par_numero: 1, fecha: '',
+  fecha: '',
   coches_grandes: 0, coches_pequenos: 0,
   kg_coche_grande: 2250, kg_coche_pequeno: 1500,
   valor_ton_grande: 30000, valor_ton_pequeno: 30000,
@@ -22,10 +22,9 @@ export default function Picadores() {
   const [form, setForm] = useState(emptyForm)
   const [turnoForm, setTurnoForm] = useState(emptyTurno)
   const [saving, setSaving] = useState(false)
-  const [frente, setFrente] = useState('frente1')
   const [tarifas, setTarifas] = useState({})
 
-  useEffect(() => { if (corteActivo) { loadRegistros(); loadTarifas() } }, [corteActivo, frente])
+  useEffect(() => { if (corteActivo) { loadRegistros(); loadTarifas() } }, [corteActivo])
 
   const loadTarifas = async () => {
     const { data } = await supabase.from('tarifas').select('concepto,valor')
@@ -44,7 +43,7 @@ export default function Picadores() {
   }
 
   const loadRegistros = async () => {
-    const { data: r } = await supabase.from('picadores_registros').select('*').eq('corte_id', corteActivo.id).eq('frente', frente).order('fecha', { ascending: false })
+    const { data: r } = await supabase.from('picadores_registros').select('*').eq('corte_id', corteActivo.id).order('fecha', { ascending: false })
     const { data: t } = await supabase.from('turnos_bonificaciones').select('*').eq('corte_id', corteActivo.id).eq('modulo', 'picadores').order('created_at', { ascending: false })
     setRegistros(r || [])
     setTurnos(t || [])
@@ -68,15 +67,15 @@ export default function Picadores() {
     if (!corteActivo) return addToast('No hay corte activo', 'error')
     setSaving(true)
     const { error } = await supabase.from('picadores_registros').insert({
-      ...form,
       corte_id: corteActivo.id,
+      frente: 'frente1',
+      fecha: form.fecha,
       coches_grandes: Number(form.coches_grandes),
       coches_pequenos: Number(form.coches_pequenos),
       kg_coche_grande: Number(form.kg_coche_grande),
       kg_coche_pequeno: Number(form.kg_coche_pequeno),
       valor_ton_grande: Number(form.valor_ton_grande),
       valor_ton_pequeno: Number(form.valor_ton_pequeno),
-      par_numero: Number(form.par_numero),
       created_by: user.id,
     })
     if (error) addToast('Error: ' + error.message, 'error')
@@ -126,25 +125,13 @@ export default function Picadores() {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {FRENTES.map(f => (
-          <button key={f} onClick={() => setFrente(f)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${frente === f ? 'bg-mine-accent text-slate-900 font-semibold' : 'bg-mine-surface border border-mine-border text-mine-muted hover:text-mine-text'}`}>
-            {FRENTE_LABELS[f]}
-          </button>
-        ))}
-      </div>
-
       {showForm && (
         <div className="card border-mine-accent/30">
-          <h2 className="font-semibold mb-4">Registro de Coches — {FRENTE_LABELS[frente]}</h2>
+          <h2 className="font-semibold mb-4">Registro de Coches</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="label">Fecha</label>
               <input type="date" className="input" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} required />
-            </div>
-            <div>
-              <label className="label">Par #</label>
-              <input type="number" className="input" value={form.par_numero} onChange={e => setForm(f => ({ ...f, par_numero: e.target.value }))} min="1" max="13" required />
             </div>
             <div>
               <label className="label">Coches Grandes</label>
@@ -182,12 +169,6 @@ export default function Picadores() {
         <div className="card border-yellow-500/30">
           <h2 className="font-semibold mb-4">Turno / Bonificación — Picadores</h2>
           <form onSubmit={handleTurno} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="label">Frente</label>
-              <select className="input" value={turnoForm.frente} onChange={e => setTurnoForm(f => ({ ...f, frente: e.target.value }))}>
-                {FRENTES.map(f => <option key={f} value={f}>{FRENTE_LABELS[f]}</option>)}
-              </select>
-            </div>
             <div>
               <label className="label">Tipo</label>
               <select className="input" value={turnoForm.tipo} onChange={e => setTurnoForm(f => ({ ...f, tipo: e.target.value }))}>
@@ -233,12 +214,11 @@ export default function Picadores() {
       </div>
 
       <div className="card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b border-mine-border font-medium text-sm">Registros — {FRENTE_LABELS[frente]}</div>
+        <div className="px-4 py-3 border-b border-mine-border font-medium text-sm">Registros del corte</div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-mine-border">
               <th className="text-left px-4 py-2 text-mine-muted font-medium">Fecha</th>
-              <th className="text-center px-4 py-2 text-mine-muted font-medium">Par</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">C.Grandes</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">C.Pequeños</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Toneladas</th>
@@ -252,7 +232,6 @@ export default function Picadores() {
               return (
                 <tr key={r.id} className="border-b border-mine-border/50 hover:bg-white/2">
                   <td className="px-4 py-2">{r.fecha}</td>
-                  <td className="px-4 py-2 text-center text-mine-muted">Par {r.par_numero}</td>
                   <td className="px-4 py-2 text-right">{r.coches_grandes}</td>
                   <td className="px-4 py-2 text-right">{r.coches_pequenos}</td>
                   <td className="px-4 py-2 text-right text-green-400">{(tonG + tonP).toFixed(3)}</td>
@@ -265,7 +244,7 @@ export default function Picadores() {
             })}
           </tbody>
         </table>
-        {!registros.length && <div className="text-center py-8 text-mine-muted text-sm">Sin registros para este frente.</div>}
+        {!registros.length && <div className="text-center py-8 text-mine-muted text-sm">Sin registros en este corte.</div>}
       </div>
 
       {turnos.length > 0 && (
@@ -276,7 +255,6 @@ export default function Picadores() {
               <tr className="border-b border-mine-border">
                 <th className="text-left px-4 py-2 text-mine-muted font-medium">Tipo</th>
                 <th className="text-left px-4 py-2 text-mine-muted font-medium">Descripción</th>
-                <th className="text-center px-4 py-2 text-mine-muted font-medium">Frente</th>
                 <th className="text-right px-4 py-2 text-mine-muted font-medium">Total</th>
                 <th className="w-10"></th>
               </tr>
@@ -286,7 +264,6 @@ export default function Picadores() {
                 <tr key={t.id} className="border-b border-mine-border/50">
                   <td className="px-4 py-2 capitalize text-yellow-400">{t.tipo}</td>
                   <td className="px-4 py-2 text-mine-muted">{t.descripcion}</td>
-                  <td className="px-4 py-2 text-center text-mine-muted">{FRENTE_LABELS[t.frente]}</td>
                   <td className="px-4 py-2 text-right font-mono">{formatCOP(t.valor_total)}</td>
                   <td className="px-4 py-2">
                     <button onClick={() => deleteTurno(t.id)} className="p-1 text-mine-muted hover:text-red-400 rounded"><Trash2 size={13} /></button>
@@ -294,7 +271,7 @@ export default function Picadores() {
                 </tr>
               ))}
               <tr className="bg-mine-bg/40 font-semibold">
-                <td colSpan={3} className="px-4 py-2">Total Turnos/Bonos</td>
+                <td colSpan={2} className="px-4 py-2">Total Turnos/Bonos</td>
                 <td className="px-4 py-2 text-right font-mono text-mine-accent">{formatCOP(totalTurnos)}</td>
                 <td></td>
               </tr>
