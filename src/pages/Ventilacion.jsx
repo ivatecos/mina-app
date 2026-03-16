@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
-import { formatCOP, FRENTES, FRENTE_LABELS } from '../lib/utils'
+import { formatCOP } from '../lib/utils'
 
-const emptyForm = { frente: 'frente1', fecha: '', metros_avanzados: 0, metros_por_tramo: 16, valor_por_tramo: 120000 }
+const emptyForm = { fecha: '', metros_avanzados: 0, metros_por_tramo: 16, valor_por_tramo: 120000 }
 const emptyTurno = { modulo: 'ventilacion', frente: 'frente1', tipo: 'turno', descripcion: '', cantidad: 1, valor_unitario: 80000, valor_total: 80000 }
 
 export default function Ventilacion() {
@@ -16,12 +16,11 @@ export default function Ventilacion() {
   const [form, setForm] = useState(emptyForm)
   const [turnoForm, setTurnoForm] = useState(emptyTurno)
   const [saving, setSaving] = useState(false)
-  const [frente, setFrente] = useState('frente1')
 
-  useEffect(() => { if (corteActivo) load() }, [corteActivo, frente])
+  useEffect(() => { if (corteActivo) load() }, [corteActivo])
 
   const load = async () => {
-    const { data: r } = await supabase.from('ventilacion_registros').select('*').eq('corte_id', corteActivo.id).eq('frente', frente).order('fecha', { ascending: false })
+    const { data: r } = await supabase.from('ventilacion_registros').select('*').eq('corte_id', corteActivo.id).order('fecha', { ascending: false })
     const { data: t } = await supabase.from('turnos_bonificaciones').select('*').eq('corte_id', corteActivo.id).eq('modulo', 'ventilacion').order('created_at', { ascending: false })
     setRegistros(r || [])
     setTurnos(t || [])
@@ -42,7 +41,9 @@ export default function Ventilacion() {
     e.preventDefault()
     setSaving(true)
     const { error } = await supabase.from('ventilacion_registros').insert({
-      ...form, corte_id: corteActivo.id,
+      corte_id: corteActivo.id,
+      frente: 'frente1',
+      fecha: form.fecha,
       metros_avanzados: Number(form.metros_avanzados),
       metros_por_tramo: Number(form.metros_por_tramo),
       valor_por_tramo: Number(form.valor_por_tramo),
@@ -73,21 +74,13 @@ export default function Ventilacion() {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {FRENTES.map(f => (
-          <button key={f} onClick={() => setFrente(f)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${frente === f ? 'bg-mine-accent text-slate-900 font-semibold' : 'bg-mine-surface border border-mine-border text-mine-muted hover:text-mine-text'}`}>
-            {FRENTE_LABELS[f]}
-          </button>
-        ))}
-      </div>
-
       <div className="card bg-mine-accent/5 border-mine-accent/20 text-sm text-mine-muted">
         Fórmula: Por cada <span className="text-mine-accent font-semibold">{form.metros_por_tramo} metros</span> de avance → <span className="text-mine-accent font-semibold">{formatCOP(form.valor_por_tramo)}</span>. Costo = (Metros / {form.metros_por_tramo}) × {formatCOP(form.valor_por_tramo)}
       </div>
 
       {showForm && (
         <div className="card border-mine-accent/30">
-          <h2 className="font-semibold mb-4">Registro Ventilación — {FRENTE_LABELS[frente]}</h2>
+          <h2 className="font-semibold mb-4">Registro Ventilación</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="label">Fecha</label>
@@ -122,13 +115,7 @@ export default function Ventilacion() {
       {showTurno && (
         <div className="card border-yellow-500/30">
           <h2 className="font-semibold mb-4">Turno / Bonificación — Ventilación</h2>
-          <form onSubmit={handleTurno} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="label">Frente</label>
-              <select className="input" value={turnoForm.frente} onChange={e => setTurnoForm(f => ({ ...f, frente: e.target.value }))}>
-                {FRENTES.map(f => <option key={f} value={f}>{FRENTE_LABELS[f]}</option>)}
-              </select>
-            </div>
+          <form onSubmit={handleTurno} className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Tipo</label>
               <select className="input" value={turnoForm.tipo} onChange={e => setTurnoForm(f => ({ ...f, tipo: e.target.value }))}>
@@ -149,7 +136,7 @@ export default function Ventilacion() {
             ) : (
               <div className="col-span-2"><label className="label">Monto total</label><input type="number" className="input" value={turnoForm.valor_total} onChange={e => setTurnoForm(f => ({ ...f, valor_total: e.target.value }))} /></div>
             )}
-            <div className="col-span-2 md:col-span-4 flex gap-3">
+            <div className="col-span-2 md:col-span-3 flex gap-3">
               <button type="submit" className="btn-primary">Guardar</button>
               <button type="button" onClick={() => setShowTurno(false)} className="btn-secondary">Cancelar</button>
             </div>
@@ -164,7 +151,7 @@ export default function Ventilacion() {
       </div>
 
       <div className="card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b border-mine-border font-medium text-sm">Registros — {FRENTE_LABELS[frente]}</div>
+        <div className="px-4 py-3 border-b border-mine-border font-medium text-sm">Registros del corte</div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-mine-border">
@@ -189,7 +176,7 @@ export default function Ventilacion() {
             ))}
           </tbody>
         </table>
-        {!registros.length && <div className="text-center py-8 text-mine-muted text-sm">Sin registros para este frente.</div>}
+        {!registros.length && <div className="text-center py-8 text-mine-muted text-sm">Sin registros en este corte.</div>}
       </div>
     </div>
   )

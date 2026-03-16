@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
-import { formatCOP, formatNumber, FRENTES, FRENTE_LABELS } from '../lib/utils'
+import { formatCOP, formatNumber } from '../lib/utils'
 
-const emptyForm = { frente: 'frente1', fecha: '', coches_sacados: 0, valor_por_coche: 16000 }
+const emptyForm = { fecha: '', coches_sacados: 0, valor_por_coche: 16000 }
 
 export default function Cocheros() {
   const { corteActivo, user, addToast } = useStore()
@@ -12,12 +12,11 @@ export default function Cocheros() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [frente, setFrente] = useState('frente1')
 
-  useEffect(() => { if (corteActivo) load() }, [corteActivo, frente])
+  useEffect(() => { if (corteActivo) load() }, [corteActivo])
 
   const load = async () => {
-    const { data } = await supabase.from('cocheros_registros').select('*').eq('corte_id', corteActivo.id).eq('frente', frente).order('fecha', { ascending: false })
+    const { data } = await supabase.from('cocheros_registros').select('*').eq('corte_id', corteActivo.id).order('fecha', { ascending: false })
     setRegistros(data || [])
   }
 
@@ -30,7 +29,9 @@ export default function Cocheros() {
     e.preventDefault()
     setSaving(true)
     const { error } = await supabase.from('cocheros_registros').insert({
-      ...form, corte_id: corteActivo.id,
+      corte_id: corteActivo.id,
+      frente: 'frente1',
+      fecha: form.fecha,
       coches_sacados: Number(form.coches_sacados),
       valor_por_coche: Number(form.valor_por_coche),
       created_by: user.id,
@@ -49,17 +50,9 @@ export default function Cocheros() {
         <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2"><Plus size={16} /> Nuevo Registro</button>
       </div>
 
-      <div className="flex gap-2">
-        {FRENTES.map(f => (
-          <button key={f} onClick={() => setFrente(f)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${frente === f ? 'bg-mine-accent text-slate-900 font-semibold' : 'bg-mine-surface border border-mine-border text-mine-muted hover:text-mine-text'}`}>
-            {FRENTE_LABELS[f]}
-          </button>
-        ))}
-      </div>
-
       {showForm && (
         <div className="card border-mine-accent/30">
-          <h2 className="font-semibold mb-4">Registro Cocheros — {FRENTE_LABELS[frente]}</h2>
+          <h2 className="font-semibold mb-4">Registro Cocheros</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Fecha</label>
@@ -93,7 +86,7 @@ export default function Cocheros() {
       </div>
 
       <div className="card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b border-mine-border font-medium text-sm">Registros — {FRENTE_LABELS[frente]}</div>
+        <div className="px-4 py-3 border-b border-mine-border font-medium text-sm">Registros del corte</div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-mine-border">
@@ -118,7 +111,7 @@ export default function Cocheros() {
             ))}
           </tbody>
         </table>
-        {!registros.length && <div className="text-center py-8 text-mine-muted text-sm">Sin registros para este frente.</div>}
+        {!registros.length && <div className="text-center py-8 text-mine-muted text-sm">Sin registros en este corte.</div>}
       </div>
     </div>
   )
