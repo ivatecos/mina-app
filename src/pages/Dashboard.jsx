@@ -30,7 +30,7 @@ const calcTon = (rows) => {
   return { ton, pago }
 }
 
-const TS = { background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }
+const TS = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' }
 
 export default function Dashboard() {
   const { corteActivo } = useStore()
@@ -176,9 +176,9 @@ export default function Dashboard() {
                 <h3 className="font-semibold mb-4">Producción Histórica (ton)</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={historico}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="nombre" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="nombre" tick={{ fill: '#64748b', fontSize: 11 }} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
                     <Tooltip contentStyle={TS} />
                     <Bar dataKey="toneladas" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -188,9 +188,9 @@ export default function Dashboard() {
                 <h3 className="font-semibold mb-4">Utilidad por Corte</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={historico}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="nombre" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} tickFormatter={v => `${(v / 1000000).toFixed(0)}M`} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="nombre" tick={{ fill: '#64748b', fontSize: 11 }} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={v => `${(v / 1000000).toFixed(0)}M`} />
                     <Tooltip contentStyle={TS} formatter={v => formatCOP(v)} />
                     <Line type="monotone" dataKey="utilidad" stroke="#34d399" strokeWidth={2} dot={{ fill: '#34d399' }} />
                   </LineChart>

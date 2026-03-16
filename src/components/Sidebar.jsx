@@ -63,7 +63,7 @@ export default function Sidebar({ open, onClose }) {
         <div className="flex items-center justify-between px-4 py-4 border-b border-mine-border">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-mine-accent flex items-center justify-center">
-              <HardHat size={18} className="text-slate-900" />
+              <HardHat size={18} className="text-white" />
             </div>
             <span className="font-bold text-mine-text text-base">MinaApp</span>
           </div>
@@ -77,7 +77,7 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Avatar / user info */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-mine-border">
-          <div className="w-10 h-10 rounded-full bg-mine-accent flex items-center justify-center text-slate-900 font-bold text-base flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-mine-accent flex items-center justify-center text-white font-bold text-base flex-shrink-0">
             {initial}
           </div>
           <div className="min-w-0">
@@ -98,8 +98,8 @@ export default function Sidebar({ open, onClose }) {
               className={({ isActive }) =>
                 `flex items-center gap-3 mx-2 px-3 py-2.5 text-sm rounded-lg transition-colors mb-0.5 ${
                   isActive
-                    ? 'bg-mine-accent text-slate-900 font-semibold'
-                    : 'text-mine-muted hover:text-mine-text hover:bg-white/5'
+                    ? 'bg-mine-accent text-white font-semibold'
+                    : 'text-mine-muted hover:text-mine-text hover:bg-slate-100'
                 }`
               }
             >

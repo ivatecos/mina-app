@@ -10,7 +10,7 @@ export default function Topbar({ onMenuToggle }) {
       {/* Hamburger - mobile only */}
       <button
         onClick={onMenuToggle}
-        className="lg:hidden p-2 text-mine-muted hover:text-mine-text rounded-lg hover:bg-white/5 transition-colors"
+        className="lg:hidden p-2 text-mine-muted hover:text-mine-text rounded-lg hover:bg-slate-100 transition-colors"
       >
         <Menu size={20} />
       </button>

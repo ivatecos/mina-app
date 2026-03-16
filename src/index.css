@@ -16,7 +16,7 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-mine-accent hover:bg-mine-accent-dark text-slate-900 font-semibold px-4 py-2 rounded-lg transition-colors;
+    @apply bg-mine-accent hover:bg-mine-accent-dark text-white font-semibold px-4 py-2 rounded-lg transition-colors;
   }
   .btn-secondary {
     @apply bg-mine-surface hover:bg-mine-border text-mine-text border border-mine-border px-4 py-2 rounded-lg transition-colors;

@@ -6,13 +6,13 @@ export default {
     extend: {
       colors: {
         mine: {
-          bg: '#0f172a',
-          surface: '#1e293b',
-          border: '#334155',
-          accent: '#f59e0b',
-          'accent-dark': '#d97706',
-          text: '#f1f5f9',
-          muted: '#94a3b8',
+          bg: '#f1f5f9',
+          surface: '#ffffff',
+          border: '#e2e8f0',
+          accent: '#2563eb',
+          'accent-dark': '#1d4ed8',
+          text: '#0f172a',
+          muted: '#64748b',
         },
       },
     },
