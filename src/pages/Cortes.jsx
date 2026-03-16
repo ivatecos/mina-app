@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Lock, Archive, Eye } from 'lucide-react'
+import { Plus, Lock, Archive, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
 import { formatCOP, formatDate, ESTADO_COLORS, ESTADO_LABELS } from '../lib/utils'
@@ -58,6 +58,13 @@ export default function Cortes() {
     const { error } = await supabase.from('cortes').update({ estado: nuevoEstado }).eq('id', id)
     if (error) addToast('Error: ' + error.message, 'error')
     else { addToast(msgs[nuevoEstado]); load() }
+  }
+
+  const eliminarCorte = async (id, nombre) => {
+    if (!window.confirm(`¿Eliminar el corte "${nombre}" y todos sus datos? Esta acción no se puede deshacer.`)) return
+    const { error } = await supabase.from('cortes').delete().eq('id', id)
+    if (error) addToast('Error: ' + error.message, 'error')
+    else { addToast('Corte eliminado'); load() }
   }
 
   return (
@@ -130,6 +137,9 @@ export default function Cortes() {
                   <Archive size={13} /> Archivar
                 </button>
               )}
+              <button onClick={() => eliminarCorte(c.id, c.nombre)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-900/20 text-red-500 border border-red-900/40 rounded-lg hover:bg-red-900/40 transition-colors">
+                <Trash2 size={13} /> Eliminar
+              </button>
             </div>
           </div>
         ))}
