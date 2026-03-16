@@ -62,8 +62,9 @@ export default function Cortes() {
 
   const eliminarCorte = async (id, nombre) => {
     if (!window.confirm(`¿Eliminar el corte "${nombre}" y todos sus datos? Esta acción no se puede deshacer.`)) return
-    const { error } = await supabase.from('cortes').delete().eq('id', id)
+    const { error, count } = await supabase.from('cortes').delete({ count: 'exact' }).eq('id', id)
     if (error) addToast('Error: ' + error.message, 'error')
+    else if (count === 0) addToast('Sin permisos para eliminar. Agrega la política DELETE en Supabase.', 'error')
     else { addToast('Corte eliminado'); load() }
   }
 
