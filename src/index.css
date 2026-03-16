@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-mine-bg text-mine-text;
+    margin: 0;
+    font-family: system-ui, 'Segoe UI', sans-serif;
+  }
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-mine-accent hover:bg-mine-accent-dark text-slate-900 font-semibold px-4 py-2 rounded-lg transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-mine-surface hover:bg-mine-border text-mine-text border border-mine-border px-4 py-2 rounded-lg transition-colors;
+  }
+  .card {
+    @apply bg-mine-surface border border-mine-border rounded-xl p-4;
+  }
+  .input {
+    @apply bg-mine-bg border border-mine-border text-mine-text rounded-lg px-3 py-2 w-full focus:outline-none focus:border-mine-accent transition-colors;
+  }
+  .label {
+    @apply text-mine-muted text-sm mb-1 block;
+  }
+  .cop {
+    @apply font-mono;
+  }
+}
