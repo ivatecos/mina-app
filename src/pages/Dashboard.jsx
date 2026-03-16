@@ -5,14 +5,17 @@ import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
 import { formatCOP, formatNumber } from '../lib/utils'
 
-const KPICard = ({ title, value, sub, icon: Icon, color = 'text-mine-accent' }) => (
-  <div className="card flex flex-col gap-2">
+const KPICard = ({ title, value, sub, icon: Icon, color = 'text-mine-accent', bar = 'bg-mine-accent' }) => (
+  <div className="bg-mine-surface border border-mine-border rounded-xl p-4 flex flex-col gap-2 overflow-hidden relative">
     <div className="flex items-center justify-between">
-      <span className="text-mine-muted text-sm">{title}</span>
-      <Icon size={18} className={color} />
+      <span className="text-mine-muted text-xs font-medium uppercase tracking-wide">{title}</span>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bar} bg-opacity-15`}>
+        <Icon size={16} className={color} />
+      </div>
     </div>
-    <div className={`text-2xl font-bold ${color}`}>{value}</div>
+    <div className={`text-xl font-bold ${color} leading-tight`}>{value}</div>
     {sub && <div className="text-xs text-mine-muted">{sub}</div>}
+    <div className={`absolute bottom-0 left-0 right-0 h-1 ${bar}`} />
   </div>
 )
 
@@ -118,15 +121,16 @@ export default function Dashboard() {
       ) : kpis && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KPICard title="Producción" value={`${formatNumber(kpis.tonP.toFixed(2))} ton`} icon={Weight} />
-            <KPICard title="Ingreso Neto" value={formatCOP(kpis.ingresoNeto)} sub={`Bruto: ${formatCOP(kpis.ingresoBruto)}`} icon={DollarSign} color="text-green-400" />
-            <KPICard title="Total Nómina" value={formatCOP(kpis.totalNomina)} icon={Users} color="text-blue-400" />
+            <KPICard title="Producción" value={`${formatNumber(kpis.tonP.toFixed(2))} ton`} icon={Weight} color="text-mine-accent" bar="bg-mine-accent" />
+            <KPICard title="Ingreso Neto" value={formatCOP(kpis.ingresoNeto)} sub={`Bruto: ${formatCOP(kpis.ingresoBruto)}`} icon={DollarSign} color="text-green-400" bar="bg-green-400" />
+            <KPICard title="Total Nómina" value={formatCOP(kpis.totalNomina)} icon={Users} color="text-blue-400" bar="bg-blue-400" />
             <KPICard
               title={kpis.utilidad >= 0 ? 'Utilidad' : 'Pérdida'}
               value={formatCOP(kpis.utilidad)}
               sub={`Margen: ${kpis.margenPct.toFixed(1)}%`}
               icon={kpis.utilidad >= 0 ? TrendingUp : TrendingDown}
               color={kpis.utilidad >= 0 ? 'text-green-400' : 'text-red-400'}
+              bar={kpis.utilidad >= 0 ? 'bg-green-400' : 'bg-red-400'}
             />
           </div>
 
