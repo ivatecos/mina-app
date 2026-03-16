@@ -14,9 +14,12 @@ const MODULO_LABELS = {
 }
 
 const formatTs = (ts) => {
-  if (!ts) return ''
+  if (!ts) return { fecha: '', hora: '' }
   const d = new Date(ts)
-  return d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return {
+    fecha: d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    hora: d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+  }
 }
 
 export default function AuditLog() {
@@ -118,7 +121,9 @@ export default function AuditLog() {
             <tbody>
               {filtered.map(log => (
                 <tr key={log.id} className="border-b border-mine-border/50 hover:bg-slate-50">
-                  <td className="px-4 py-3 text-mine-muted whitespace-nowrap text-xs">{formatTs(log.created_at)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {(() => { const { fecha, hora } = formatTs(log.created_at); return (<><div className="text-xs text-mine-text font-medium">{fecha}</div><div className="text-xs text-mine-muted">{hora}</div></>) })()}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-mine-text">{log.usuario_email}</div>
                     <div className="text-xs text-mine-muted capitalize">{log.usuario_rol}</div>
