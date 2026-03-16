@@ -28,15 +28,28 @@ export default function Cortes() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase.from('cortes').insert({
+    const { data: corte, error } = await supabase.from('cortes').insert({
       ...form,
       precio_carbon_ton: Number(form.precio_carbon_ton),
       precio_flete_ton: Number(form.precio_flete_ton),
       estado: 'abierto',
       creado_por: user.id,
-    })
-    if (error) { addToast('Error al crear corte: ' + error.message, 'error') }
-    else { addToast('Corte creado exitosamente'); setShowForm(false); setForm(emptyForm); load() }
+    }).select().single()
+
+    if (error) { addToast('Error al crear corte: ' + error.message, 'error'); setSaving(false); return }
+
+    // Copiar personal activo al corte con sus valores actuales
+    const { data: personal } = await supabase.from('personal_operativo').select('*').eq('activo', true)
+    if (personal?.length) {
+      await supabase.from('nomina_operativo_corte').insert(
+        personal.map(p => ({ corte_id: corte.id, personal_id: p.id, valor_pagado: p.valor_quincenal }))
+      )
+    }
+
+    addToast('Corte creado — nómina cargada automáticamente')
+    setShowForm(false)
+    setForm(emptyForm)
+    load()
     setSaving(false)
   }
 
