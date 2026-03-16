@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Layers, Settings, Users, Pickaxe,
-  Wind, Construction, Truck, Receipt, BarChart3, LogOut, HardHat, X
+  Wind, Construction, Truck, Receipt, BarChart3, LogOut, HardHat, X, ClipboardList
 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { supabase } from '../lib/supabase'
@@ -17,6 +17,7 @@ const adminNav = [
   { to: '/gastos', icon: Receipt, label: 'Gastos' },
   { to: '/reportes', icon: BarChart3, label: 'Reportes' },
   { to: '/tarifas', icon: Settings, label: 'Tarifas' },
+  { to: '/auditlog', icon: ClipboardList, label: 'Log Auditoría' },
 ]
 
 const ministrNav = [

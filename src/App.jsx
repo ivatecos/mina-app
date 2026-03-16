@@ -16,6 +16,7 @@ import Ventilacion from './pages/Ventilacion'
 import Cocheros from './pages/Cocheros'
 import GastosOperativos from './pages/GastosOperativos'
 import Reportes from './pages/Reportes'
+import AuditLog from './pages/AuditLog'
 
 export default function App() {
   const { setUser, loadCorteActivo } = useStore()
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="cocheros" element={<ProtectedRoute><Cocheros /></ProtectedRoute>} />
           <Route path="gastos" element={<ProtectedRoute><GastosOperativos /></ProtectedRoute>} />
           <Route path="reportes" element={<ProtectedRoute roles={['administrador']}><Reportes /></ProtectedRoute>} />
+          <Route path="auditlog" element={<ProtectedRoute roles={['administrador']}><AuditLog /></ProtectedRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

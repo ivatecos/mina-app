@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Edit2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
 import { formatCOP } from '../lib/utils'
+import { logAudit } from '../lib/audit'
 
 const emptyForm = { fecha: '', metros_avanzados: 0, valor_metro: 350000, patios_hechos: 0, valor_patio: 950000 }
 const emptyTurno = { modulo: 'frenteros', frente: 'frente1', tipo: 'turno', descripcion: '', cantidad: 1, valor_unitario: 80000, valor_total: 80000 }
@@ -15,6 +16,7 @@ export default function Frenteros() {
   const [showTurno, setShowTurno] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [turnoForm, setTurnoForm] = useState(emptyTurno)
+  const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { if (corteActivo) load() }, [corteActivo])
@@ -39,7 +41,7 @@ export default function Frenteros() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase.from('frenteros_registros').insert({
+    const payload = {
       corte_id: corteActivo.id,
       frente: 'frente1',
       fecha: form.fecha,
@@ -47,10 +49,24 @@ export default function Frenteros() {
       valor_metro: Number(form.valor_metro),
       patios_hechos: Number(form.patios_hechos),
       valor_patio: Number(form.valor_patio),
-      created_by: user.id,
-    })
-    if (error) addToast('Error: ' + error.message, 'error')
-    else { addToast('Registro guardado'); setShowForm(false); load() }
+    }
+    const detalle = `Fecha: ${form.fecha} | Metros: ${form.metros_avanzados}m | Patios: ${form.patios_hechos}`
+
+    if (editId) {
+      const { error } = await supabase.from('frenteros_registros').update(payload).eq('id', editId)
+      if (error) { addToast('Error: ' + error.message, 'error'); setSaving(false); return }
+      await logAudit('EDITÓ', 'frenteros', detalle)
+      addToast('Registro actualizado')
+    } else {
+      const { error } = await supabase.from('frenteros_registros').insert({ ...payload, created_by: user.id })
+      if (error) { addToast('Error: ' + error.message, 'error'); setSaving(false); return }
+      await logAudit('CREÓ', 'frenteros', detalle)
+      addToast('Registro guardado')
+    }
+    setShowForm(false)
+    setForm(emptyForm)
+    setEditId(null)
+    load()
     setSaving(false)
   }
 
@@ -59,7 +75,26 @@ export default function Frenteros() {
     const vt = turnoForm.tipo === 'turno' ? Number(turnoForm.cantidad) * Number(turnoForm.valor_unitario) : Number(turnoForm.valor_total)
     const { error } = await supabase.from('turnos_bonificaciones').insert({ ...turnoForm, corte_id: corteActivo.id, cantidad: Number(turnoForm.cantidad), valor_unitario: Number(turnoForm.valor_unitario), valor_total: vt, created_by: user.id })
     if (error) addToast('Error: ' + error.message, 'error')
-    else { addToast('Guardado'); setShowTurno(false); setTurnoForm(emptyTurno); load() }
+    else {
+      await logAudit('CREÓ', 'frenteros', `Turno/Bono: ${turnoForm.descripcion} — ${formatCOP(vt)}`)
+      addToast('Guardado')
+      setShowTurno(false)
+      setTurnoForm(emptyTurno)
+      load()
+    }
+  }
+
+  const startEdit = (r) => {
+    setForm({ fecha: r.fecha, metros_avanzados: r.metros_avanzados, valor_metro: r.valor_metro, patios_hechos: r.patios_hechos, valor_patio: r.valor_patio })
+    setEditId(r.id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const deleteReg = async (r) => {
+    await supabase.from('frenteros_registros').delete().eq('id', r.id)
+    await logAudit('ELIMINÓ', 'frenteros', `Fecha: ${r.fecha} | Metros: ${r.metros_avanzados}m | Patios: ${r.patios_hechos} | Total: ${formatCOP(calcPago(r))}`)
+    load()
   }
 
   if (!corteActivo) return <div className="text-mine-muted text-center py-16">No hay corte activo.</div>
@@ -70,13 +105,13 @@ export default function Frenteros() {
         <h1 className="text-2xl font-bold text-mine-text">Frenteros</h1>
         <div className="flex gap-2">
           <button onClick={() => setShowTurno(!showTurno)} className="btn-secondary text-sm flex items-center gap-1.5"><Plus size={14} /> Turno/Bono</button>
-          <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2"><Plus size={16} /> Nuevo Registro</button>
+          <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm(emptyForm) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Nuevo Registro</button>
         </div>
       </div>
 
       {showForm && (
         <div className="card border-mine-accent/30">
-          <h2 className="font-semibold mb-4">Registro Frenteros</h2>
+          <h2 className="font-semibold mb-4">{editId ? 'Editar Registro' : 'Registro Frenteros'}</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Fecha</label>
@@ -99,8 +134,8 @@ export default function Frenteros() {
               <input type="number" className="input" value={form.valor_patio} onChange={e => setForm(f => ({ ...f, valor_patio: e.target.value }))} />
             </div>
             <div className="col-span-2 md:col-span-3 flex gap-3">
-              <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
+              <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">{saving ? 'Guardando...' : editId ? 'Guardar Cambios' : 'Guardar'}</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} className="btn-secondary">Cancelar</button>
             </div>
           </form>
         </div>
@@ -141,7 +176,7 @@ export default function Frenteros() {
       <div className="grid grid-cols-3 gap-4">
         <div className="card"><div className="text-mine-muted text-xs mb-1">Metros Avanzados</div><div className="text-xl font-bold text-mine-accent">{totales.metros} m</div></div>
         <div className="card"><div className="text-mine-muted text-xs mb-1">Patios Construidos</div><div className="text-xl font-bold text-mine-accent">{totales.patios}</div></div>
-        <div className="card"><div className="text-mine-muted text-xs mb-1">Total a Pagar</div><div className="text-xl font-bold text-blue-400">{formatCOP(totales.pago + totalTurnos)}</div></div>
+        <div className="card"><div className="text-mine-muted text-xs mb-1">Total a Pagar</div><div className="text-xl font-bold text-blue-600">{formatCOP(totales.pago + totalTurnos)}</div></div>
       </div>
 
       <div className="card p-0 overflow-hidden">
@@ -155,12 +190,12 @@ export default function Frenteros() {
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Pago Avance</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Pago Patios</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Total</th>
-              <th className="w-10"></th>
+              <th className="w-16"></th>
             </tr>
           </thead>
           <tbody>
             {registros.map(r => (
-              <tr key={r.id} className="border-b border-mine-border/50 hover:bg-white/2">
+              <tr key={r.id} className="border-b border-mine-border/50 hover:bg-slate-50">
                 <td className="px-4 py-2">{r.fecha}</td>
                 <td className="px-4 py-2 text-right">{r.metros_avanzados} m</td>
                 <td className="px-4 py-2 text-right">{r.patios_hechos}</td>
@@ -168,7 +203,10 @@ export default function Frenteros() {
                 <td className="px-4 py-2 text-right font-mono">{formatCOP(r.patios_hechos * r.valor_patio)}</td>
                 <td className="px-4 py-2 text-right font-mono text-mine-accent">{formatCOP(calcPago(r))}</td>
                 <td className="px-4 py-2">
-                  <button onClick={async () => { await supabase.from('frenteros_registros').delete().eq('id', r.id); load() }} className="p-1 text-mine-muted hover:text-red-400 rounded"><Trash2 size={13} /></button>
+                  <div className="flex gap-1 justify-end">
+                    <button onClick={() => startEdit(r)} className="p-1 text-mine-muted hover:text-mine-accent rounded"><Edit2 size={13} /></button>
+                    <button onClick={() => deleteReg(r)} className="p-1 text-mine-muted hover:text-red-500 rounded"><Trash2 size={13} /></button>
+                  </div>
                 </td>
               </tr>
             ))}

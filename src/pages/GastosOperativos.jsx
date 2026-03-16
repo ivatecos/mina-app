@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Filter } from 'lucide-react'
+import { Plus, Trash2, Edit2, Filter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
 import { formatCOP, CATEGORIAS_GASTOS } from '../lib/utils'
+import { logAudit } from '../lib/audit'
 
 const emptyForm = { categoria: 'Combustible / Canecas', descripcion: '', cantidad: '', valor_unitario: '', monto_total: '', tipo: 'operativo', fecha: '' }
 
@@ -11,6 +12,7 @@ export default function GastosOperativos() {
   const [gastos, setGastos] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [filtroTipo, setFiltroTipo] = useState('todos')
 
@@ -36,21 +38,56 @@ export default function GastosOperativos() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase.from('gastos').insert({
+    const payload = {
       ...form,
       corte_id: corteActivo.id,
       cantidad: form.cantidad ? Number(form.cantidad) : null,
       valor_unitario: form.valor_unitario ? Number(form.valor_unitario) : null,
       monto_total: Number(form.monto_total),
-      created_by: user.id,
-    })
-    if (error) addToast('Error: ' + error.message, 'error')
-    else { addToast('Gasto registrado'); setShowForm(false); setForm(emptyForm); load() }
+    }
+    const detalle = `${form.categoria} | ${form.descripcion} | ${formatCOP(Number(form.monto_total))} | Tipo: ${form.tipo}`
+
+    if (editId) {
+      const { id: _id, created_by: _cb, ...updatePayload } = payload
+      const { error } = await supabase.from('gastos').update(updatePayload).eq('id', editId)
+      if (error) { addToast('Error: ' + error.message, 'error'); setSaving(false); return }
+      await logAudit('EDITÓ', 'gastos', detalle)
+      addToast('Gasto actualizado')
+    } else {
+      const { error } = await supabase.from('gastos').insert({ ...payload, created_by: user.id })
+      if (error) { addToast('Error: ' + error.message, 'error'); setSaving(false); return }
+      await logAudit('CREÓ', 'gastos', detalle)
+      addToast('Gasto registrado')
+    }
+    setShowForm(false)
+    setForm(emptyForm)
+    setEditId(null)
+    load()
     setSaving(false)
   }
 
-  const filtered = filtroTipo === 'todos' ? gastos : gastos.filter(g => g.tipo === filtroTipo)
+  const startEdit = (g) => {
+    setForm({
+      categoria: g.categoria,
+      descripcion: g.descripcion,
+      cantidad: g.cantidad ? String(g.cantidad) : '',
+      valor_unitario: g.valor_unitario ? String(g.valor_unitario) : '',
+      monto_total: String(g.monto_total),
+      tipo: g.tipo,
+      fecha: g.fecha,
+    })
+    setEditId(g.id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
+  const deleteGasto = async (g) => {
+    await supabase.from('gastos').delete().eq('id', g.id)
+    await logAudit('ELIMINÓ', 'gastos', `${g.categoria} | ${g.descripcion} | ${formatCOP(g.monto_total)}`)
+    load()
+  }
+
+  const filtered = filtroTipo === 'todos' ? gastos : gastos.filter(g => g.tipo === filtroTipo)
   const totOp = gastos.filter(g => g.tipo === 'operativo').reduce((a, g) => a + g.monto_total, 0)
   const totNoOp = gastos.filter(g => g.tipo === 'no_operativo').reduce((a, g) => a + g.monto_total, 0)
 
@@ -65,17 +102,17 @@ export default function GastosOperativos() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-mine-text">Gastos Operativos</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2"><Plus size={16} /> Nuevo Gasto</button>
+        <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm(emptyForm) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Nuevo Gasto</button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="card"><div className="text-mine-muted text-xs mb-1">Total Gastos Operativos</div><div className="text-xl font-bold text-red-400">{formatCOP(totOp)}</div></div>
-        <div className="card"><div className="text-mine-muted text-xs mb-1">Total No Operativos</div><div className="text-xl font-bold text-slate-400">{formatCOP(totNoOp)}</div></div>
+        <div className="card"><div className="text-mine-muted text-xs mb-1">Total Gastos Operativos</div><div className="text-xl font-bold text-red-500">{formatCOP(totOp)}</div></div>
+        <div className="card"><div className="text-mine-muted text-xs mb-1">Total No Operativos</div><div className="text-xl font-bold text-slate-500">{formatCOP(totNoOp)}</div></div>
       </div>
 
       {showForm && (
         <div className="card border-mine-accent/30">
-          <h2 className="font-semibold mb-4">Registrar Gasto</h2>
+          <h2 className="font-semibold mb-4">{editId ? 'Editar Gasto' : 'Registrar Gasto'}</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Categoría</label>
@@ -111,8 +148,8 @@ export default function GastosOperativos() {
               <input type="number" className="input" value={form.monto_total} onChange={e => handleFormChange('monto_total', e.target.value)} min="0" required placeholder="9100000" />
             </div>
             <div className="col-span-2 md:col-span-3 flex gap-3">
-              <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">{saving ? 'Guardando...' : 'Registrar Gasto'}</button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
+              <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">{saving ? 'Guardando...' : editId ? 'Guardar Cambios' : 'Registrar Gasto'}</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} className="btn-secondary">Cancelar</button>
             </div>
           </form>
         </div>
@@ -136,7 +173,7 @@ export default function GastosOperativos() {
         <Filter size={14} className="text-mine-muted" />
         <span className="text-mine-muted text-sm">Filtrar:</span>
         {[['todos', 'Todos'], ['operativo', 'Operativos'], ['no_operativo', 'No Operativos']].map(([val, label]) => (
-          <button key={val} onClick={() => setFiltroTipo(val)} className={`px-3 py-1 rounded-lg text-xs transition-colors ${filtroTipo === val ? 'bg-mine-accent text-slate-900 font-semibold' : 'bg-mine-surface border border-mine-border text-mine-muted hover:text-mine-text'}`}>
+          <button key={val} onClick={() => setFiltroTipo(val)} className={`px-3 py-1 rounded-lg text-xs transition-colors ${filtroTipo === val ? 'bg-mine-accent text-white font-semibold' : 'bg-mine-surface border border-mine-border text-mine-muted hover:text-mine-text'}`}>
             {label}
           </button>
         ))}
@@ -151,23 +188,26 @@ export default function GastosOperativos() {
               <th className="text-left px-4 py-2 text-mine-muted font-medium">Descripción</th>
               <th className="text-center px-4 py-2 text-mine-muted font-medium">Tipo</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Monto</th>
-              <th className="w-10"></th>
+              <th className="w-16"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(g => (
-              <tr key={g.id} className="border-b border-mine-border/50 hover:bg-white/2">
+              <tr key={g.id} className="border-b border-mine-border/50 hover:bg-slate-50">
                 <td className="px-4 py-2 text-mine-muted">{g.fecha}</td>
                 <td className="px-4 py-2 text-mine-text">{g.categoria}</td>
                 <td className="px-4 py-2 text-mine-muted max-w-xs truncate">{g.descripcion}</td>
                 <td className="px-4 py-2 text-center">
-                  <span className={`text-xs px-2 py-0.5 rounded-full border ${g.tipo === 'operativo' ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' : 'text-slate-400 bg-slate-400/10 border-slate-400/30'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${g.tipo === 'operativo' ? 'text-blue-600 bg-blue-50 border-blue-200' : 'text-slate-500 bg-slate-100 border-slate-200'}`}>
                     {g.tipo === 'operativo' ? 'Op.' : 'No Op.'}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-red-400">{formatCOP(g.monto_total)}</td>
+                <td className="px-4 py-2 text-right font-mono text-red-500">{formatCOP(g.monto_total)}</td>
                 <td className="px-4 py-2">
-                  <button onClick={async () => { await supabase.from('gastos').delete().eq('id', g.id); load() }} className="p-1 text-mine-muted hover:text-red-400 rounded"><Trash2 size={13} /></button>
+                  <div className="flex gap-1 justify-end">
+                    <button onClick={() => startEdit(g)} className="p-1 text-mine-muted hover:text-mine-accent rounded"><Edit2 size={13} /></button>
+                    <button onClick={() => deleteGasto(g)} className="p-1 text-mine-muted hover:text-red-500 rounded"><Trash2 size={13} /></button>
+                  </div>
                 </td>
               </tr>
             ))}

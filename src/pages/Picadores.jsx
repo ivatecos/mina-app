@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Edit2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
 import { formatCOP, formatNumber } from '../lib/utils'
+import { logAudit } from '../lib/audit'
 
 const emptyForm = {
   fecha: '',
@@ -21,6 +22,7 @@ export default function Picadores() {
   const [showTurno, setShowTurno] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [turnoForm, setTurnoForm] = useState(emptyTurno)
+  const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [tarifas, setTarifas] = useState({})
 
@@ -66,7 +68,7 @@ export default function Picadores() {
     e.preventDefault()
     if (!corteActivo) return addToast('No hay corte activo', 'error')
     setSaving(true)
-    const { error } = await supabase.from('picadores_registros').insert({
+    const payload = {
       corte_id: corteActivo.id,
       frente: 'frente1',
       fecha: form.fecha,
@@ -76,10 +78,24 @@ export default function Picadores() {
       kg_coche_pequeno: Number(form.kg_coche_pequeno),
       valor_ton_grande: Number(form.valor_ton_grande),
       valor_ton_pequeno: Number(form.valor_ton_pequeno),
-      created_by: user.id,
-    })
-    if (error) addToast('Error: ' + error.message, 'error')
-    else { addToast('Registro guardado'); setShowForm(false); loadRegistros() }
+    }
+    const detalle = `Fecha: ${form.fecha} | C.Grandes: ${form.coches_grandes} | C.Pequeños: ${form.coches_pequenos}`
+
+    if (editId) {
+      const { error } = await supabase.from('picadores_registros').update(payload).eq('id', editId)
+      if (error) { addToast('Error: ' + error.message, 'error'); setSaving(false); return }
+      await logAudit('EDITÓ', 'picadores', detalle)
+      addToast('Registro actualizado')
+    } else {
+      const { error } = await supabase.from('picadores_registros').insert({ ...payload, created_by: user.id })
+      if (error) { addToast('Error: ' + error.message, 'error'); setSaving(false); return }
+      await logAudit('CREÓ', 'picadores', detalle)
+      addToast('Registro guardado')
+    }
+    setShowForm(false)
+    setForm(emptyForm)
+    setEditId(null)
+    loadRegistros()
     setSaving(false)
   }
 
@@ -96,16 +112,40 @@ export default function Picadores() {
       created_by: user.id,
     })
     if (error) addToast('Error: ' + error.message, 'error')
-    else { addToast('Turno/Bono guardado'); setShowTurno(false); setTurnoForm(emptyTurno); loadRegistros() }
+    else {
+      await logAudit('CREÓ', 'picadores', `Turno/Bono: ${turnoForm.descripcion} — ${formatCOP(vt)}`)
+      addToast('Turno/Bono guardado')
+      setShowTurno(false)
+      setTurnoForm(emptyTurno)
+      loadRegistros()
+    }
   }
 
-  const deleteReg = async (id) => {
-    await supabase.from('picadores_registros').delete().eq('id', id)
+  const startEdit = (r) => {
+    setForm({
+      fecha: r.fecha,
+      coches_grandes: r.coches_grandes,
+      coches_pequenos: r.coches_pequenos,
+      kg_coche_grande: r.kg_coche_grande,
+      kg_coche_pequeno: r.kg_coche_pequeno,
+      valor_ton_grande: r.valor_ton_grande,
+      valor_ton_pequeno: r.valor_ton_pequeno,
+    })
+    setEditId(r.id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const deleteReg = async (r) => {
+    const { tonG, tonP } = calcPago(r)
+    await supabase.from('picadores_registros').delete().eq('id', r.id)
+    await logAudit('ELIMINÓ', 'picadores', `Fecha: ${r.fecha} | C.Grandes: ${r.coches_grandes} | C.Pequeños: ${r.coches_pequenos} | ${(tonG + tonP).toFixed(3)} ton`)
     loadRegistros()
   }
 
-  const deleteTurno = async (id) => {
-    await supabase.from('turnos_bonificaciones').delete().eq('id', id)
+  const deleteTurno = async (t) => {
+    await supabase.from('turnos_bonificaciones').delete().eq('id', t.id)
+    await logAudit('ELIMINÓ', 'picadores', `Turno/Bono: ${t.descripcion} — ${formatCOP(t.valor_total)}`)
     loadRegistros()
   }
 
@@ -119,7 +159,7 @@ export default function Picadores() {
           <button onClick={() => setShowTurno(!showTurno)} className="btn-secondary text-sm flex items-center gap-1.5">
             <Plus size={14} /> Turno/Bono
           </button>
-          <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2">
+          <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm(emptyForm) }} className="btn-primary flex items-center gap-2">
             <Plus size={16} /> Nuevo Registro
           </button>
         </div>
@@ -127,7 +167,7 @@ export default function Picadores() {
 
       {showForm && (
         <div className="card border-mine-accent/30">
-          <h2 className="font-semibold mb-4">Registro de Coches</h2>
+          <h2 className="font-semibold mb-4">{editId ? 'Editar Registro' : 'Registro de Coches'}</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="label">Fecha</label>
@@ -158,8 +198,8 @@ export default function Picadores() {
               <input type="number" className="input" value={form.valor_ton_pequeno} onChange={e => setForm(f => ({ ...f, valor_ton_pequeno: e.target.value }))} />
             </div>
             <div className="col-span-2 md:col-span-4 flex gap-3">
-              <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
+              <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">{saving ? 'Guardando...' : editId ? 'Guardar Cambios' : 'Guardar'}</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} className="btn-secondary">Cancelar</button>
             </div>
           </form>
         </div>
@@ -209,8 +249,8 @@ export default function Picadores() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card"><div className="text-mine-muted text-xs mb-1">Coches Grandes</div><div className="text-xl font-bold text-mine-accent">{formatNumber(totales.cochesG)}</div></div>
         <div className="card"><div className="text-mine-muted text-xs mb-1">Coches Pequeños</div><div className="text-xl font-bold text-mine-accent">{formatNumber(totales.cochesP)}</div></div>
-        <div className="card"><div className="text-mine-muted text-xs mb-1">Total Toneladas</div><div className="text-xl font-bold text-green-400">{totales.ton.toFixed(3)} ton</div></div>
-        <div className="card"><div className="text-mine-muted text-xs mb-1">Total a Pagar</div><div className="text-xl font-bold text-blue-400">{formatCOP(totales.pago + totalTurnos)}</div></div>
+        <div className="card"><div className="text-mine-muted text-xs mb-1">Total Toneladas</div><div className="text-xl font-bold text-green-600">{totales.ton.toFixed(3)} ton</div></div>
+        <div className="card"><div className="text-mine-muted text-xs mb-1">Total a Pagar</div><div className="text-xl font-bold text-blue-600">{formatCOP(totales.pago + totalTurnos)}</div></div>
       </div>
 
       <div className="card p-0 overflow-hidden">
@@ -223,21 +263,24 @@ export default function Picadores() {
               <th className="text-right px-4 py-2 text-mine-muted font-medium">C.Pequeños</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Toneladas</th>
               <th className="text-right px-4 py-2 text-mine-muted font-medium">Pago</th>
-              <th className="w-10"></th>
+              <th className="w-16"></th>
             </tr>
           </thead>
           <tbody>
             {registros.map(r => {
               const { tonG, tonP, pago } = calcPago(r)
               return (
-                <tr key={r.id} className="border-b border-mine-border/50 hover:bg-white/2">
+                <tr key={r.id} className="border-b border-mine-border/50 hover:bg-slate-50">
                   <td className="px-4 py-2">{r.fecha}</td>
                   <td className="px-4 py-2 text-right">{r.coches_grandes}</td>
                   <td className="px-4 py-2 text-right">{r.coches_pequenos}</td>
-                  <td className="px-4 py-2 text-right text-green-400">{(tonG + tonP).toFixed(3)}</td>
+                  <td className="px-4 py-2 text-right text-green-600">{(tonG + tonP).toFixed(3)}</td>
                   <td className="px-4 py-2 text-right font-mono text-mine-accent">{formatCOP(pago)}</td>
                   <td className="px-4 py-2">
-                    <button onClick={() => deleteReg(r.id)} className="p-1 text-mine-muted hover:text-red-400 rounded"><Trash2 size={13} /></button>
+                    <div className="flex gap-1 justify-end">
+                      <button onClick={() => startEdit(r)} className="p-1 text-mine-muted hover:text-mine-accent rounded"><Edit2 size={13} /></button>
+                      <button onClick={() => deleteReg(r)} className="p-1 text-mine-muted hover:text-red-500 rounded"><Trash2 size={13} /></button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -262,15 +305,15 @@ export default function Picadores() {
             <tbody>
               {turnos.map(t => (
                 <tr key={t.id} className="border-b border-mine-border/50">
-                  <td className="px-4 py-2 capitalize text-yellow-400">{t.tipo}</td>
+                  <td className="px-4 py-2 capitalize text-yellow-600">{t.tipo}</td>
                   <td className="px-4 py-2 text-mine-muted">{t.descripcion}</td>
                   <td className="px-4 py-2 text-right font-mono">{formatCOP(t.valor_total)}</td>
                   <td className="px-4 py-2">
-                    <button onClick={() => deleteTurno(t.id)} className="p-1 text-mine-muted hover:text-red-400 rounded"><Trash2 size={13} /></button>
+                    <button onClick={() => deleteTurno(t)} className="p-1 text-mine-muted hover:text-red-500 rounded"><Trash2 size={13} /></button>
                   </td>
                 </tr>
               ))}
-              <tr className="bg-mine-bg/40 font-semibold">
+              <tr className="bg-slate-50 font-semibold">
                 <td colSpan={2} className="px-4 py-2">Total Turnos/Bonos</td>
                 <td className="px-4 py-2 text-right font-mono text-mine-accent">{formatCOP(totalTurnos)}</td>
                 <td></td>
